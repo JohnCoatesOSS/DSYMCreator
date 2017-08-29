@@ -7,6 +7,8 @@ import struct
 import sys
 import subprocess
 import argparse
+import pprint
+import time
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 TOOLCHAIN_DIR = os.path.join(THIS_DIR, 'toolchain')
@@ -22,7 +24,7 @@ def extract_raw_symbol_from_objc_symbols(binary_path, is_arm64):
   objc_symbols_bin_path = os.path.join(TOOLCHAIN_DIR, 'objc-symbols')
   arch = 'arm64' if is_arm64 else 'armv7'
   raw_symbols = run_bash('%s --arch %s %s | sort' % (objc_symbols_bin_path, arch, binary_path))
-  
+
   # format to 'base	end	name'
   symbols = []
   for l in raw_symbols.split('\n'):
@@ -56,11 +58,17 @@ def extract_thin_if_binary_is_fat(binary_path, is_arm64):
     pass
   elif magic_num == 0xfeedfacf and is_arm64:
     pass
+  elif magic_num == 0xfeedfacf:
+    pass # 64-bit
   else:
     # invalid file
     print >> sys.stderr, 'invalid binary file: %s' % binary_path
     sys.exit(1)
   return binary_path
+
+def extract_raw_symbol_from_hopper(binary_path):
+  run_bash("hopperv4 -e \"%s\" -a -o -W -M -X -Y \"/Volumes/4 TB/jbresearch/tools/Hopper/ExtractFunctions.py\"" % (binary_path))
+  return '/tmp/dsym_creator_raw_symbol.txt'
 
 def extract_raw_symbol_from_ida(binary_path):
   raw_symbol_path = '/tmp/dsym_creator_raw_symbol.txt'
@@ -93,6 +101,8 @@ def dsymcreator_format_symbol(uuid, raw_ida_symbol, dwarf_section_offset, output
              '--output', output]
   if is_arm64:
     command.append('--arm64')
+  # pp = pprint.PrettyPrinter(depth=6)
+  # pp.pprint(command)
   retcode = subprocess.call(command)
   if retcode !=0:
     print >> sys.stderr, 'DSYMCreator run failed!'
@@ -101,7 +111,8 @@ def dsymcreator_format_symbol(uuid, raw_ida_symbol, dwarf_section_offset, output
 def main(options):
   binary_path = os.path.abspath(options.binary_path)
   binary_dir, binary_file_name = os.path.split(binary_path)
-  output_symbol_path = os.path.join(binary_dir, '%s.symbol' % binary_file_name)
+  # output_symbol_path = os.path.join(binary_dir, '%s.symbol' % binary_file_name)
+  output_symbol_path = os.path.join("/tmp/dsym/", "%s.symbol" % binary_file_name)
 
   raw_symbol_path = None
 
@@ -110,14 +121,22 @@ def main(options):
 
   if options.only_objc:
     # only objc mode, use objc-symbols output symbol
-    # extract symbols by objc-symbols 
+    # extract symbols by objc-symbols
     raw_symbol_path = extract_raw_symbol_from_objc_symbols(binary_path, options.arm64)
   else:
     # ida pro mode
     # first make sure IDA exists
-    make_sure_ida_exists()
+    # make_sure_ida_exists()
     # extract raw symbol from IDA Pro
-    raw_symbol_path = extract_raw_symbol_from_ida(binary_path)
+    # raw_symbol_path = extract_raw_symbol_from_ida(binary_path)
+    extract_raw_symbol_from_hopper(binary_path)
+    # raw_symbol_path = '/tmp/dsym_creator_raw_symbol.txt'
+    raw_symbol_path = "/tmp/dsym/%s.txt" % (binary_path.replace('/', '_'))
+
+  # wait for file to be created
+  while not os.path.isfile(raw_symbol_path):
+      time.sleep(0.1)
+
 
   # extract uuid fram binary file
   uuid = extract_uuid_from_binary(binary_path)
@@ -130,7 +149,7 @@ def main(options):
 
 
 if __name__ == '__main__':
-  description = '''create a symbol file from a decrypted iOS binary. 
+  description = '''create a symbol file from a decrypted iOS binary.
 If you want to create the symbol file by IDA Pro (free version is enough!), then you can execute command like this.
     {self_name} --input /path/to/binary
 

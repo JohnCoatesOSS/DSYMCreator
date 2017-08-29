@@ -19,6 +19,7 @@ DEFINE_string(raw_ida_symbol, "", "file path for the output by the ida script");
 DEFINE_string(output, "", "file path to save the symbol");
 DEFINE_string(dwarf_section_vmbase, "", "vm base addr for dwarf sections, in hex format");
 DEFINE_bool(arm64, false, "build 64 bit symbol file (ARM64)");
+DEFINE_bool(macOS64, false, "build 64 bit symbol file (x86_64)");
 
 namespace {
     void init_gflag_config(int& argc, char**& argv) {
@@ -81,8 +82,10 @@ int main(int argc, char* argv[]) {
     
     try {
         init_gflag_config(argc, argv);
-        
-        if (FLAGS_arm64) {
+        if (FLAGS_macOS64 || true) {
+            uint64_t vmbase = std::stoull(FLAGS_dwarf_section_vmbase, nullptr, 16);
+            dump_symbol_to_file<uint64_t>(FLAGS_uuid, FLAGS_raw_ida_symbol, vmbase, FLAGS_output);
+        } else if (FLAGS_arm64) {
             uint64_t vmbase = std::stoull(FLAGS_dwarf_section_vmbase, nullptr, 16);
             dump_symbol_to_file<uint64_t>(FLAGS_uuid, FLAGS_raw_ida_symbol, vmbase, FLAGS_output);
         } else {

@@ -40,8 +40,8 @@ namespace internal {
     struct MachHeader64 : public mach_header_64 {
         MachHeader64() {
             magic = MH_MAGIC_64;
-            cputype = CPU_TYPE_ARM64;
-            cpusubtype = CPU_SUBTYPE_ARM64_ALL;
+            cputype = CPU_TYPE_X86_64;
+            cpusubtype = CPU_SUBTYPE_X86_64_ALL | CPU_SUBTYPE_LIB64;
             filetype = MH_DSYM;
             flags = 0;
         }
